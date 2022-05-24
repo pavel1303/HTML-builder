@@ -1,14 +1,13 @@
 const path = require('path');
 const promiseFs = require('fs/promises');
 const fs = require('fs');
+buildPage();
 
 async function buildHTML(){
-  await promiseFs.mkdir(path.join(__dirname, 'project-dist'), {recursive: true});
-  await promiseFs.writeFile(path.join(__dirname, 'project-dist', 'index.html'), '');
   //Файл с шаблоном HTML
   let sampleHTML = await promiseFs.readFile(path.join(__dirname,'template.html'), 'utf-8');
   //Массив с компонентами
-  const components = await promiseFs.readdir(path.join(__dirname, 'components'));
+  // const components = await promiseFs.readdir(path.join(__dirname, 'components'));
   //Массив с названиями тегов-шаблонов
   const componentsName = [];
   //Прохожусь по файлу с шаблоном и ищу теги, которые необходимо заменить на компонент
@@ -23,34 +22,34 @@ async function buildHTML(){
   await createObjComponents(componentsName, objContent);
   //Собираю новый HTML файл
   //Разбиваю шаблон на строки
-  sampleHTML.split('\n').forEach(async (el) => {
-    //Если строка содержит {{, то вместо строки вставляем компонент
-    if(el.includes('{{')){
+  for(let el of sampleHTML.split('\n')){
+    if(!el.includes('{{')){
+      await promiseFs.appendFile(path.join(__dirname, 'project-dist', 'index.html'), el);
+    }else{
       //Выбираем подходящий компонент
       componentsName.forEach(async (component) => {
         let tag = '{{'+`${component}`+'}}';
-        if(components.includes(`${component}.html`) && el.includes(tag)){
-          await promiseFs.appendFile(path.join(__dirname, 'project-dist', 'index.html'), '\n'+objContent[component] + '\n');
+        if(el.includes(tag)){
+          await promiseFs.appendFile(path.join(__dirname, 'project-dist', 'index.html'), objContent[component] );
         }
       });
-    }else{
-      await promiseFs.appendFile(path.join(__dirname, 'project-dist', 'index.html'), el);
     }
-  });
+  }
 }
-//Вызываю функцию копирования для папки assets
-const dirForCopy = path.join(__dirname, 'assets');
-const targetDir = path.join(__dirname, 'project-dist', 'assets');
-copyDir(dirForCopy, targetDir);
-//Создаю и наполняю index.html
-buildHTML();
-//Вызываю функцию сбора стилей и добавления в проект
-const styles = path.join(__dirname, 'styles');
-const dist = path.join(__dirname, 'project-dist');
-buildStyles(styles, dist);
-
-
-
+async function buildPage(){
+  await promiseFs.mkdir(path.join(__dirname, 'project-dist'), {recursive: true});
+  await promiseFs.writeFile(path.join(__dirname, 'project-dist', 'index.html'), '');
+  //Вызываю функцию копирования для папки assets
+  const dirForCopy = path.join(__dirname, 'assets');
+  const targetDir = path.join(__dirname, 'project-dist', 'assets');
+  copyDir(dirForCopy, targetDir);
+  //Вызываю функцию сбора стилей и добавления в проект
+  const styles = path.join(__dirname, 'styles');
+  const dist = path.join(__dirname, 'project-dist');
+  buildStyles(styles, dist);
+  //Создаю и наполняю index.html
+  buildHTML();
+}
 //Функчия для поиска компонентов в шаблоне
 function findComponent(elem){
   let component = '';
@@ -83,15 +82,13 @@ async function buildStyles(stylesDir, build){
   const output = fs.createWriteStream(path.join(build, 'style.css'));
   files.forEach(file => {
     const input = fs.createReadStream(path.join(stylesDir, file.name));
-    const ext = path.extname(path.join(styles, file.name));
+    const ext = path.extname(path.join(stylesDir, file.name));
     if(file.isFile() && ext === '.css'){
       input.pipe(output);
     }
   });
 }
-
 //Функция копирования
-
 async function copyDir(toCopy, copyHere){
   if(copyHere){
     await promiseFs.rm(copyHere, { recursive: true, force: true });
